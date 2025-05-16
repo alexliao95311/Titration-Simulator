@@ -78,7 +78,8 @@ def calculate_pH_weak_acid(concentration, Ka):
     if concentration <= 0 or Ka <= 0:
         return 7.0
     # Solve quadratic equation for [H+]: [H+]^2 + Ka[H+] - Ka*concentration = 0
-    # Ensure we're using the correct formula for weak acid equilibrium
+    # Using the quadratic formula: x = (-b ± √(b² - 4ac)) / 2a
+    # Where a=1, b=Ka, c=-Ka*concentration
     h_conc = (-Ka + np.sqrt(Ka**2 + 4*Ka*concentration)) / 2
     return -np.log10(h_conc)
 
@@ -106,25 +107,28 @@ def calculate_buffer_pH(acid_conc, conj_base_conc, Ka):
     return pKa + np.log10(conj_base_conc / acid_conc)
 
 def calculate_weak_acid_salt_pH(salt_conc, Ka):
-    """Calculate pH of salt solution from weak acid"""
+    """Calculate pH of salt solution from weak acid (conjugate base)"""
     if salt_conc <= 0 or Ka <= 0:
         return 7.0
     
-    Kb = Kw / Ka  # Kb of conjugate base
-    # For salt of weak acid, calculate [OH-]
+    # For the conjugate base of a weak acid
+    Kb = Kw / Ka
+    
+    # Calculate [OH-] using the approximation for salt of weak acid
+    # OH- comes from hydrolysis: A- + H2O ⇌ HA + OH-
+    # [OH-] = √(Kb × salt_conc)
     oh_conc = np.sqrt(Kb * salt_conc)
     h_conc = Kw / oh_conc
+    
     return -np.log10(h_conc)
 
 def calculate_weak_base_salt_pH(salt_conc, Kb):
-    """Calculate pH of salt solution from weak base"""
+    """Correctly calculate pH of solution formed by conjugate acid of a weak base"""
     if salt_conc <= 0 or Kb <= 0:
         return 7.0
     
-    Ka = Kw / Kb  # Ka of conjugate acid
-    # For salt of weak base, calculate [H+]
-    h_conc = np.sqrt(Ka * salt_conc)
-    return -np.log10(h_conc)
+    Ka = Kw / Kb
+    return calculate_pH_weak_acid(salt_conc, Ka)
 
 def get_conjugate(species):
     """Get the conjugate acid or base of a species if available"""
@@ -139,6 +143,7 @@ def is_strong_base(species):
     return species in bases and bases[species] > 1e0
 
 def simulate_titration(params):
+    print("🔸 simulate_titration loaded from:", __file__)
     """Simulate titration and return results"""
     titrant = params['titrant']
     analyte = params['analyte']
@@ -158,7 +163,7 @@ def simulate_titration(params):
     if analyte_type == "base":
         moles_analyte = analyte_conc * (analyte_vol / 1000) * n_OH
     else:  # acid
-        moles_analyte = analyte_conc * (analyte_vol / 1000) * n_OH
+        moles_analyte = analyte_conc * (analyte_vol / 1000) * acid_protons.get(analyte, 1)
     
     # Equivalence volume in mL
     equiv_vol = (moles_analyte / (titrant_conc * n_H)) * 1000
@@ -245,20 +250,21 @@ def simulate_titration(params):
                     pH = 7.0
                 elif is_titrant_strong_acid and not is_analyte_strong_base:
                     # Salt of strong acid and weak base: acidic
-                    Ka_conj_acid = Kw / Kb_analyte
+                    # Correct calculation for salt of weak base with strong acid
                     pH = calculate_weak_base_salt_pH(salt_conc, Kb_analyte)
                 elif not is_titrant_strong_acid and is_analyte_strong_base:
                     # Salt of weak acid and strong base: basic
+                    # Correct calculation for salt of weak acid with strong base
                     pH = calculate_weak_acid_salt_pH(salt_conc, Ka_titrant)
                 else:
-                    # Salt of weak acid and weak base: more complex
-                    # Compare Ka and Kb to determine if acidic, basic, or neutral
-                    if Ka_titrant > Kb_analyte:  # More acidic
-                        pH = calculate_weak_base_salt_pH(salt_conc, Kb_analyte)
-                    elif Ka_titrant < Kb_analyte:  # More basic
-                        pH = calculate_weak_acid_salt_pH(salt_conc, Ka_titrant)
-                    else:  # Equal strength: neutral
-                        pH = 7.0
+                    # Exactly at equivalence: salt of conjugate acid and conjugate base
+                    conj_acid = get_conjugate(analyte)    # e.g., CH3COOH
+                    conj_base = get_conjugate(titrant)    # e.g., NH3
+                    Ka_eq = acids[conj_acid]
+                    Kb_eq = bases[conj_base]
+                    pKa = -np.log10(Ka_eq)
+                    pKb = -np.log10(Kb_eq)
+                    pH = 7 + 0.5 * (pKa - pKb)
         
         elif titrant_type == "base" and analyte_type == "acid":
             # Base titrating acid
@@ -300,19 +306,21 @@ def simulate_titration(params):
                     pH = 7.0
                 elif is_titrant_strong_base and not is_analyte_strong_acid:
                     # Salt of strong base and weak acid: basic
+                    # Correct calculation for salt of weak acid with strong base
                     pH = calculate_weak_acid_salt_pH(salt_conc, Ka_analyte)
                 elif not is_titrant_strong_base and is_analyte_strong_acid:
                     # Salt of weak base and strong acid: acidic
+                    # Correct calculation for salt of weak base with strong acid
                     pH = calculate_weak_base_salt_pH(salt_conc, Kb_titrant)
                 else:
-                    # Salt of weak base and weak acid: more complex
-                    # Compare Ka and Kb to determine if acidic, basic, or neutral
-                    if Ka_analyte > Kb_titrant:  # More acidic
-                        pH = calculate_weak_base_salt_pH(salt_conc, Kb_titrant)
-                    elif Ka_analyte < Kb_titrant:  # More basic
-                        pH = calculate_weak_acid_salt_pH(salt_conc, Ka_analyte)
-                    else:  # Equal strength: neutral
-                        pH = 7.0
+                    # Exactly at equivalence: salt of conjugate acid and conjugate base
+                    conj_base = get_conjugate(analyte)    # e.g., CH3COO-
+                    conj_acid = get_conjugate(titrant)    # e.g., NH4+
+                    Ka_eq = acids[conj_acid]
+                    Kb_eq = bases[conj_base]
+                    pKa = -np.log10(Ka_eq)
+                    pKb = -np.log10(Kb_eq)
+                    pH = 7 + 0.5 * (pKa - pKb)
         
         else:
             # Default to neutral (this shouldn't happen with proper validation)
@@ -326,22 +334,16 @@ def simulate_titration(params):
     half_equiv_vol = equiv_vol / 2
 
     # For different scenarios, half-equivalence pH has different meanings
-    if titrant_type == "acid" and analyte_type == "base":
-        if not is_analyte_strong_base:
-            idx_half = np.abs(volume_titrant_added - half_equiv_vol).argmin()
-            half_equiv_pH = pH_values[idx_half]
-        else:
-            idx_half = np.abs(volume_titrant_added - half_equiv_vol).argmin()
-            half_equiv_pH = pH_values[idx_half]
-    elif titrant_type == "base" and analyte_type == "acid":
-        if not is_analyte_strong_acid:
-            idx_half = np.abs(volume_titrant_added - half_equiv_vol).argmin()
-            half_equiv_pH = pH_values[idx_half]
-        else:
-            idx_half = np.abs(volume_titrant_added - half_equiv_vol).argmin()
-            half_equiv_pH = pH_values[idx_half]
+    if titrant_type == "base" and analyte_type == "acid" and not is_analyte_strong_acid:
+        # For weak acid titrated with base, pH at half-equivalence = pKa of weak acid
+        half_equiv_pH = -np.log10(Ka_analyte)
+    elif titrant_type == "acid" and analyte_type == "base" and not is_analyte_strong_base:
+        # For weak base titrated with acid, pH at half-equivalence = 14 - pKb of weak base = pKa of conjugate acid
+        half_equiv_pH = 14 + np.log10(Kb_analyte)
     else:
-        half_equiv_pH = 7.0  # Default
+        # For other cases, just find the pH at the half equivalence volume
+        idx_half = np.abs(volume_titrant_added - half_equiv_vol).argmin()
+        half_equiv_pH = pH_values[idx_half]
     
     # Find pH at true equivalence (should already be calculated but we'll ensure accuracy)
     idx_eq = np.abs(volume_titrant_added - equiv_vol).argmin()
