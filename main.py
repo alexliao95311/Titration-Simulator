@@ -26,7 +26,6 @@ st.markdown("""
         border-left: 3px solid #4B8BBE;
     }
     .results-header {
-        background-color: #f0f8ff;
         padding: 5px 10px;
         border-radius: 5px;
         margin-bottom: 10px;
@@ -36,12 +35,6 @@ st.markdown("""
 
 # Title and description
 st.title("🧪 Titration Curve Simulator")
-st.markdown("""
-<div class='info-box'>
-This app simulates acid-base titrations and plots pH curves. Select your titrant, analyte, 
-and experimental conditions, then click 'Simulate' to analyze the titration.
-</div>
-""", unsafe_allow_html=True)
 
 # Create sidebar for input parameters
 st.sidebar.header("Titration Parameters")
@@ -337,7 +330,8 @@ if simulate:
         if ((titrant_type == 'acid' and not tc.is_strong_acid(titrant)) or
             (analyte_type == 'acid' and not tc.is_strong_acid(analyte))):
             buffer_start = max(0, results['equiv_vol'] * 0.25)
-            buffer_end = min(results['equiv_vol'] * 0.75, results['max_titrant_vol'])
+            # use the sidebar’s max_vt value instead of results[...]
+            buffer_end = min(results['equiv_vol'] * 0.75, max_vt)
             ax.axvspan(buffer_start, buffer_end, alpha=0.2, color='yellow', label="Buffer Region")
         
         # Improve the appearance
@@ -369,16 +363,6 @@ if simulate:
         
         # Display the plot
         st.pyplot(fig)
-        
-        # Add download options
-        st.download_button(
-            label="📊 Download Plot as PNG",
-            data=io.BytesIO(),  # Placeholder - Streamlit doesn't directly support fig download
-            file_name=f"titration_{titrant}_{analyte}.png",
-            mime="image/png",
-            help="Download button is a placeholder - use the save button on the plot instead",
-            disabled=True
-        )
         
         # Create CSV data for download
         csv_data = io.StringIO()
