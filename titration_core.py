@@ -173,7 +173,14 @@ def simulate_titration(params):
     vol_before = np.linspace(0, max(0.95 * equiv_vol, 0), int(resolution * 0.4))
     vol_around = np.linspace(0.95 * equiv_vol, min(1.05 * equiv_vol, max_titrant_vol), int(resolution * 0.2))
     vol_after = np.linspace(min(1.05 * equiv_vol, max_titrant_vol), max_titrant_vol, int(resolution * 0.4))
-    volume_titrant_added = np.unique(np.concatenate([vol_before, vol_around, vol_after]))
+    volume_titrant_added = np.unique(
+        np.concatenate([
+            vol_before,
+            vol_around,
+            vol_after,
+            [equiv_vol]
+        ])
+    )
     
     # Get dissociation constants
     Ka_titrant = acids.get(titrant, None)
@@ -203,6 +210,7 @@ def simulate_titration(params):
     
     # Calculate pH for each volume of titrant
     for Vt in volume_titrant_added:
+        tol = 1e-12  # numerical tolerance for equivalence checks
         total_vol = (analyte_vol + Vt) / 1000  # Total volume in liters
         
         # moles of titrant added
@@ -212,115 +220,77 @@ def simulate_titration(params):
         if titrant_type == "acid" and analyte_type == "base":
             # Acid titrating base
             moles_base_remaining = moles_analyte - moles_titrant
-            
-            if moles_base_remaining > 0:
-                # Before equivalence point
+
+            # Determine titration region
+            if abs(moles_base_remaining) <= tol:
+                # Equivalence point (weak–weak)
+                conj_acid_analyte = get_conjugate(analyte)
+                conj_base_titrant = get_conjugate(titrant)
+                if conj_acid_analyte in acids and conj_base_titrant in bases:
+                    Ka_analyte_conj = acids[conj_acid_analyte]
+                    Kb_titrant_conj = bases[conj_base_titrant]
+                    pH = 7 + 0.5 * (np.log10(Ka_analyte_conj) - np.log10(Kb_titrant_conj))
+                else:
+                    pH = 7.0
+
+            elif moles_base_remaining > tol:
+                # Before equivalence: weak base or buffer
                 if is_analyte_strong_base:
-                    # Strong base remaining
                     conc_base = moles_base_remaining / total_vol
                     pH = calculate_pH_strong_base(conc_base)
                 else:
-                    # Weak base remaining and forming a buffer with its conjugate acid
-                    moles_conj_acid = moles_titrant  # conjugate acid formed
-                    if moles_conj_acid > 0:  # Buffer region
+                    moles_conj_acid = moles_titrant
+                    if moles_conj_acid > 0:
                         conc_base = moles_base_remaining / total_vol
                         conc_conj_acid = moles_conj_acid / total_vol
-                        Ka_conj_acid = Kw / Kb_analyte  # Ka of conjugate acid
+                        Ka_conj_acid = Kw / Kb_analyte
                         pH = calculate_buffer_pH(conc_conj_acid, conc_base, Ka_conj_acid)
-                    else:  # Just weak base
+                    else:
                         conc_base = moles_base_remaining / total_vol
                         pH = calculate_pH_weak_base(conc_base, Kb_analyte)
-            
-            elif moles_base_remaining < 0:
-                # After equivalence point: excess acid
+
+            else:
+                # After equivalence: excess acid
                 moles_excess_acid = abs(moles_base_remaining)
                 conc_excess_acid = moles_excess_acid / total_vol
-                
-                if is_titrant_strong_acid:
-                    pH = calculate_pH_strong_acid(conc_excess_acid)
-                else:
-                    pH = calculate_pH_weak_acid(conc_excess_acid, Ka_titrant)
-            
-            else:
-                # Exactly at equivalence point: salt solution
-                salt_conc = moles_analyte / total_vol
-                
-                if is_titrant_strong_acid and is_analyte_strong_base:
-                    # Salt of strong acid and strong base: neutral
-                    pH = 7.0
-                elif is_titrant_strong_acid and not is_analyte_strong_base:
-                    # Salt of strong acid and weak base: acidic
-                    # Correct calculation for salt of weak base with strong acid
-                    pH = calculate_weak_base_salt_pH(salt_conc, Kb_analyte)
-                elif not is_titrant_strong_acid and is_analyte_strong_base:
-                    # Salt of weak acid and strong base: basic
-                    # Correct calculation for salt of weak acid with strong base
-                    pH = calculate_weak_acid_salt_pH(salt_conc, Ka_titrant)
-                else:
-                    # Exactly at equivalence: salt of conjugate acid and conjugate base
-                    conj_acid = get_conjugate(analyte)    # e.g., CH3COOH
-                    conj_base = get_conjugate(titrant)    # e.g., NH3
-                    Ka_eq = acids[conj_acid]
-                    Kb_eq = bases[conj_base]
-                    pKa = -np.log10(Ka_eq)
-                    pKb = -np.log10(Kb_eq)
-                    pH = 7 + 0.5 * (pKa - pKb)
+                pH = calculate_pH_weak_acid(conc_excess_acid, Ka_titrant)
         
         elif titrant_type == "base" and analyte_type == "acid":
             # Base titrating acid
             moles_acid_remaining = moles_analyte - moles_titrant
-            
-            if moles_acid_remaining > 0:
-                # Before equivalence point
+
+            # Determine titration region
+            if abs(moles_acid_remaining) <= tol:
+                # Equivalence point (weak–weak)
+                conj_acid_titrant = get_conjugate(titrant)
+                conj_base_analyte = get_conjugate(analyte)
+                if conj_acid_titrant in acids and conj_base_analyte in bases:
+                    Ka_titrant_conj = acids[conj_acid_titrant]
+                    Kb_analyte_conj = bases[conj_base_analyte]
+                    pH = 7 + 0.5 * (np.log10(Ka_titrant_conj) - np.log10(Kb_analyte_conj))
+                else:
+                    pH = 7.0
+
+            elif moles_acid_remaining > tol:
+                # Before equivalence: weak acid or buffer
                 if is_analyte_strong_acid:
-                    # Strong acid remaining
                     conc_acid = moles_acid_remaining / total_vol
                     pH = calculate_pH_strong_acid(conc_acid)
                 else:
-                    # Weak acid remaining and forming a buffer with its conjugate base
-                    moles_conj_base = moles_titrant  # conjugate base formed
-                    if moles_conj_base > 0:  # Buffer region
+                    moles_conj_base = moles_titrant
+                    if moles_conj_base > 0:
                         conc_acid = moles_acid_remaining / total_vol
                         conc_conj_base = moles_conj_base / total_vol
                         pH = calculate_buffer_pH(conc_acid, conc_conj_base, Ka_analyte)
-                    else:  # Just weak acid
+                    else:
                         conc_acid = moles_acid_remaining / total_vol
                         pH = calculate_pH_weak_acid(conc_acid, Ka_analyte)
-            
-            elif moles_acid_remaining < 0:
-                # After equivalence point: excess base
+
+            else:
+                # After equivalence: excess base
                 moles_excess_base = abs(moles_acid_remaining)
                 conc_excess_base = moles_excess_base / total_vol
-                
-                if is_titrant_strong_base:
-                    pH = calculate_pH_strong_base(conc_excess_base)
-                else:
-                    pH = calculate_pH_weak_base(conc_excess_base, Kb_titrant)
-            
-            else:
-                # Exactly at equivalence point: salt solution
-                salt_conc = moles_analyte / total_vol
-                
-                if is_titrant_strong_base and is_analyte_strong_acid:
-                    # Salt of strong base and strong acid: neutral
-                    pH = 7.0
-                elif is_titrant_strong_base and not is_analyte_strong_acid:
-                    # Salt of strong base and weak acid: basic
-                    # Correct calculation for salt of weak acid with strong base
-                    pH = calculate_weak_acid_salt_pH(salt_conc, Ka_analyte)
-                elif not is_titrant_strong_base and is_analyte_strong_acid:
-                    # Salt of weak base and strong acid: acidic
-                    # Correct calculation for salt of weak base with strong acid
-                    pH = calculate_weak_base_salt_pH(salt_conc, Kb_titrant)
-                else:
-                    # Exactly at equivalence: salt of conjugate acid and conjugate base
-                    conj_base = get_conjugate(analyte)    # e.g., CH3COO-
-                    conj_acid = get_conjugate(titrant)    # e.g., NH4+
-                    Ka_eq = acids[conj_acid]
-                    Kb_eq = bases[conj_base]
-                    pKa = -np.log10(Ka_eq)
-                    pKb = -np.log10(Kb_eq)
-                    pH = 7 + 0.5 * (pKa - pKb)
+                pH = calculate_pH_weak_base(conc_excess_base, Kb_titrant)
         
         else:
             # Default to neutral (this shouldn't happen with proper validation)
