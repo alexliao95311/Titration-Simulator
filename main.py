@@ -34,7 +34,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Title and description
-st.title("🧪 Titration Curve Simulator")
+st.title("Titration Simulator")
 
 # Create sidebar for input parameters
 st.sidebar.header("Titration Parameters")
@@ -379,9 +379,6 @@ if simulate:
         )
     
     with col2:
-        # Display key titration results in a table
-        st.subheader("Titration Results")
-        
         # Get pH values from the actual data points
         half_equiv_idx = np.abs(results['volume_titrant_added'] - results['half_equiv_vol']).argmin()
         equiv_idx = np.abs(results['volume_titrant_added'] - results['equiv_vol']).argmin()
@@ -409,10 +406,70 @@ if simulate:
                 f"{results['pH_values'][-1]:.2f}"
             ]
         }
-    
+
         # Display results
         st.table(results_data)
+
+    # Create a new row of columns for Titration Analysis and pH Indicator Guide
+    analysis_col, indicator_col = st.columns(2)
+
+    with analysis_col:
+        # Add information about the titration
+        st.subheader("Titration Analysis")
         
+        # Generate appropriate analysis based on the titration type
+        if titrant_type == "acid" and analyte_type == "base":
+            if tc.is_strong_acid(titrant) and tc.is_strong_base(analyte):
+                st.info("**Strong Acid - Strong Base Titration**\n\n"
+                    "The equivalence point is at pH 7 (neutral). "
+                    "This titration has a sharp endpoint with a steep curve near the equivalence point.")
+            elif tc.is_strong_acid(titrant) and not tc.is_strong_base(analyte):
+                st.info("**Strong Acid - Weak Base Titration**\n\n"
+                    "The equivalence point is acidic (pH < 7). "
+                    "The curve is less steep near the equivalence point compared to "
+                    "strong acid-strong base titrations.")
+            elif not tc.is_strong_acid(titrant) and tc.is_strong_base(analyte):
+                st.info("**Weak Acid - Strong Base Titration**\n\n"
+                    "The equivalence point is basic (pH > 7). "
+                    "There's a buffer region before the equivalence point "
+                    "where pH changes slowly with added titrant.")
+            else:
+                st.info("**Weak Acid - Weak Base Titration**\n\n"
+                    "The equivalence point depends on the relative strengths of the acid and base. "
+                    "The titration curve is less steep with a less distinct endpoint.")
+        else:  # base titrating acid
+            if tc.is_strong_base(titrant) and tc.is_strong_acid(analyte):
+                st.info("**Strong Base - Strong Acid Titration**\n\n"
+                    "The equivalence point is at pH 7 (neutral). "
+                    "This titration has a sharp endpoint with a steep curve near the equivalence point.")
+            elif tc.is_strong_base(titrant) and not tc.is_strong_acid(analyte):
+                st.info("**Strong Base - Weak Acid Titration**\n\n"
+                    "The equivalence point is basic (pH > 7). "
+                    "The curve is less steep near the equivalence point compared to "
+                    "strong base-strong acid titrations.")
+            elif not tc.is_strong_base(titrant) and tc.is_strong_acid(analyte):
+                st.info("**Weak Base - Strong Acid Titration**\n\n"
+                    "The equivalence point is acidic (pH < 7). "
+                    "There's a buffer region before the equivalence point "
+                    "where pH changes slowly with added titrant.")
+            else:
+                st.info("**Weak Base - Weak Acid Titration**\n\n"
+                    "The equivalence point depends on the relative strengths of the base and acid. "
+                    "The titration curve is less steep with a less distinct endpoint.")
+        # Suggest appropriate indicator
+        equiv_pH = results['equiv_pH']
+        if equiv_pH < 3.0:
+            st.success("**Suggested indicator**: Methyl violet (pH range: 0-2)")
+        elif equiv_pH < 5.0:
+            st.success("**Suggested indicator**: Methyl orange (pH range: 3.1-4.4)")
+        elif equiv_pH < 7.0:
+            st.success("**Suggested indicator**: Bromothymol blue (pH range: 6.0-7.6)")
+        elif equiv_pH < 9.0:
+            st.success("**Suggested indicator**: Phenolphthalein (pH range: 8.0-10.0)")
+        else:
+            st.success("**Suggested indicator**: Alizarin yellow (pH range: 10.0-12.0)")
+            
+    with indicator_col:
         # Add indicator color for pH
         st.subheader("pH Indicator Guide")
         
@@ -431,58 +488,4 @@ if simulate:
             for color, indicator in indicators.items():
                 st.markdown(f"**{color}**: {indicator}")
         
-        # Add information about the titration
-        st.subheader("Titration Analysis")
         
-        # Generate appropriate analysis based on the titration type
-        if titrant_type == "acid" and analyte_type == "base":
-            if tc.is_strong_acid(titrant) and tc.is_strong_base(analyte):
-                st.info("**Strong Acid - Strong Base Titration**\n\n"
-                       "The equivalence point is at pH 7 (neutral). "
-                       "This titration has a sharp endpoint with a steep curve near the equivalence point.")
-            elif tc.is_strong_acid(titrant) and not tc.is_strong_base(analyte):
-                st.info("**Strong Acid - Weak Base Titration**\n\n"
-                       "The equivalence point is acidic (pH < 7). "
-                       "The curve is less steep near the equivalence point compared to "
-                       "strong acid-strong base titrations.")
-            elif not tc.is_strong_acid(titrant) and tc.is_strong_base(analyte):
-                st.info("**Weak Acid - Strong Base Titration**\n\n"
-                       "The equivalence point is basic (pH > 7). "
-                       "There's a buffer region before the equivalence point "
-                       "where pH changes slowly with added titrant.")
-            else:
-                st.info("**Weak Acid - Weak Base Titration**\n\n"
-                       "The equivalence point depends on the relative strengths of the acid and base. "
-                       "The titration curve is less steep with a less distinct endpoint.")
-        else:  # base titrating acid
-            if tc.is_strong_base(titrant) and tc.is_strong_acid(analyte):
-                st.info("**Strong Base - Strong Acid Titration**\n\n"
-                       "The equivalence point is at pH 7 (neutral). "
-                       "This titration has a sharp endpoint with a steep curve near the equivalence point.")
-            elif tc.is_strong_base(titrant) and not tc.is_strong_acid(analyte):
-                st.info("**Strong Base - Weak Acid Titration**\n\n"
-                       "The equivalence point is basic (pH > 7). "
-                       "The curve is less steep near the equivalence point compared to "
-                       "strong base-strong acid titrations.")
-            elif not tc.is_strong_base(titrant) and tc.is_strong_acid(analyte):
-                st.info("**Weak Base - Strong Acid Titration**\n\n"
-                       "The equivalence point is acidic (pH < 7). "
-                       "There's a buffer region before the equivalence point "
-                       "where pH changes slowly with added titrant.")
-            else:
-                st.info("**Weak Base - Weak Acid Titration**\n\n"
-                       "The equivalence point depends on the relative strengths of the base and acid. "
-                       "The titration curve is less steep with a less distinct endpoint.")
-                
-        # Suggest appropriate indicator
-        equiv_pH = results['equiv_pH']
-        if equiv_pH < 3.0:
-            st.success("**Suggested indicator**: Methyl violet (pH range: 0-2)")
-        elif equiv_pH < 5.0:
-            st.success("**Suggested indicator**: Methyl orange (pH range: 3.1-4.4)")
-        elif equiv_pH < 7.0:
-            st.success("**Suggested indicator**: Bromothymol blue (pH range: 6.0-7.6)")
-        elif equiv_pH < 9.0:
-            st.success("**Suggested indicator**: Phenolphthalein (pH range: 8.0-10.0)")
-        else:
-            st.success("**Suggested indicator**: Alizarin yellow (pH range: 10.0-12.0)")
