@@ -91,25 +91,15 @@ if tab_mode == "Standard Setup":
     
     with col_t:
         st.subheader("Titrant")
-        # Group acid and base options with headings
-        titrant_options = ([f"🧪 ACIDS"] + 
-                          list(tc.acids.keys()) + 
-                          [f"🧫 BASES"] + 
-                          list(tc.bases.keys()))
-        
-        # Default to HCl (index 1, first acid)
+        # Clean options: just acids and bases, no headers
+        titrant_options = list(tc.acids.keys()) + list(tc.bases.keys())
+        # Default to HCl (index 0, first acid)
         titrant = st.selectbox(
             "Select Titrant",
             options=titrant_options,
-            index=1,  # HCl
+            index=0,  # HCl
             key="titrant"
         )
-        
-        # Disable the headers from being selected
-        if titrant in ["🧪 ACIDS", "🧫 BASES"]:
-            st.error("Please select an actual chemical species.")
-            st.stop()
-            
         # Display titrant info
         if titrant in tc.acids:
             st.markdown(f"**Type**: Acid")
@@ -126,27 +116,16 @@ if tab_mode == "Standard Setup":
             
     with col_a:
         st.subheader("Analyte")
-        # Group acid and base options with headings
-        analyte_options = ([f"🧪 ACIDS"] + 
-                          list(tc.acids.keys()) + 
-                          [f"🧫 BASES"] + 
-                          list(tc.bases.keys()))
-        
+        # Clean options: just acids and bases, no headers
+        analyte_options = list(tc.acids.keys()) + list(tc.bases.keys())
         # Default to NaOH for acid titrant, HCl for base titrant
-        default_analyte_index = titrant_options.index("NaOH") if titrant in tc.acids else 1
-        
+        default_analyte_index = titrant_options.index("NaOH") if titrant in tc.acids else 0
         analyte = st.selectbox(
             "Select Analyte",
             options=analyte_options,
             index=default_analyte_index,
             key="analyte"
         )
-        
-        # Disable the headers from being selected
-        if analyte in ["🧪 ACIDS", "🧫 BASES"]:
-            st.error("Please select an actual chemical species.")
-            st.stop()
-            
         # Display analyte info
         if analyte in tc.acids:
             st.markdown(f"**Type**: Acid")
@@ -309,6 +288,11 @@ simulate = st.sidebar.button("🔬 Simulate Titration", key="simulate_btn", use_
 
 # When simulate button is clicked
 if simulate:
+    # Add debug prints in the UI to confirm parameters
+    st.write(f"Selected Titrant: '{titrant}'")
+    st.write(f"Selected Analyte: '{analyte}'")
+    st.write(f"Is '{titrant}' in acids? {titrant in tc.acids}")
+    st.write(f"Is '{analyte}' in bases? {analyte in tc.bases}")
     # Build params dict based on selection
     if titrant in tc.acids and analyte in tc.bases:
         titrant_type = "acid"
@@ -317,16 +301,13 @@ if simulate:
         titrant_type = "base"
         analyte_type = "acid"
     else:
-        if titrant in ["🧪 ACIDS", "🧫 BASES"] or analyte in ["🧪 ACIDS", "🧫 BASES"]:
-            st.error("Please select valid chemical species for titrant and analyte.")
-        else:
-            st.error(f"Invalid titrant/analyte combination: {titrant}/{analyte}")
+        st.error(f"Invalid titrant/analyte combination: {titrant}/{analyte}")
         st.stop()
 
     # Display titration info
     st.markdown(f"""
     <div class='results-header'>
-    <h3>Titration: {titrant} ({conc_t} M) → {analyte} ({conc_a} M, {vol_a} mL)</h3>
+    <h3>Titration: {analyte} ({conc_a} M, {vol_a} mL) → {titrant} ({conc_t} M)</h3>
     </div>
     """, unsafe_allow_html=True)
 
@@ -346,6 +327,15 @@ if simulate:
         
         # Run the simulation
         results = tc.simulate_titration(params)
+        # Debug: show raw simulation results
+        st.write("▶ simulate_titration returned:", {
+            "equiv_pH": results["equiv_pH"],
+            "initial_pH": results["initial_pH"],
+            "final_pH": results["final_pH"],
+            "pH @ equiv index": results["pH_values"][
+                np.abs(results["volume_titrant_added"] - results["equiv_vol"]).argmin()
+            ]
+        })
     
     # Create two columns layout for displaying results - UPDATED ratio
     col1, col2 = st.columns([4, 2])  # Changed from [3, 2] to [4, 2]
