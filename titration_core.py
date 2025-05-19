@@ -7,7 +7,6 @@ Kw = 1.0e-14  # Water dissociation constant
 acids = {
     "HCl": 1e6,         # Strong acid
     "H2SO4": 1e3,       # Strong acid (first dissociation)
-    "H3PO4": 7.5e-3,    # Phosphoric acid (first dissociation)
     "CH3COOH": 1.75e-5, # Acetic acid
     "H2CO3": 4.3e-7,    # Carbonic acid
     "NH4+": 5.6e-10     # Ammonium ion
