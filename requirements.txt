@@ -2,5 +2,3 @@ streamlit
 matplotlib
 numpy
 pandas
-io
-csv
