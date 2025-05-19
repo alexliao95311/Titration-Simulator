@@ -288,11 +288,6 @@ simulate = st.sidebar.button("🔬 Simulate Titration", key="simulate_btn", use_
 
 # When simulate button is clicked
 if simulate:
-    # Add debug prints in the UI to confirm parameters
-    st.write(f"Selected Titrant: '{titrant}'")
-    st.write(f"Selected Analyte: '{analyte}'")
-    st.write(f"Is '{titrant}' in acids? {titrant in tc.acids}")
-    st.write(f"Is '{analyte}' in bases? {analyte in tc.bases}")
     # Build params dict based on selection
     if titrant in tc.acids and analyte in tc.bases:
         titrant_type = "acid"
@@ -327,15 +322,6 @@ if simulate:
         
         # Run the simulation
         results = tc.simulate_titration(params)
-        # Debug: show raw simulation results
-        st.write("▶ simulate_titration returned:", {
-            "equiv_pH": results["equiv_pH"],
-            "initial_pH": results["initial_pH"],
-            "final_pH": results["final_pH"],
-            "pH @ equiv index": results["pH_values"][
-                np.abs(results["volume_titrant_added"] - results["equiv_vol"]).argmin()
-            ]
-        })
     
     # Create two columns layout for displaying results - UPDATED ratio
     col1, col2 = st.columns([4, 2])  # Changed from [3, 2] to [4, 2]
