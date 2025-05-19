@@ -274,6 +274,9 @@ def simulate_titration(params):
             pH_values.append(max(0.0, min(14.0, pH)))
         # recompute half-equivalence pH
         half_equiv_pH = -np.log10(Ka1) if titrant_type=="acid" else -np.log10(acids[analyte])
+        # Override pH at the equivalence point to our manual calculation for weak-weak titrations
+        idx_eq = np.abs(volume_titrant_added - equiv_vol).argmin()
+        pH_values[idx_eq] = eq_pH
         return {
             'volume_titrant_added': volume_titrant_added,
             'pH_values': pH_values,
