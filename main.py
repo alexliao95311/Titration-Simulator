@@ -494,29 +494,4 @@ if simulate:
                     st.info("**Weak Base - Weak Acid Titration**\n\n"
                         "The equivalence point depends on the relative strengths of the base and acid. "
                         "The titration curve is less steep with a less distinct endpoint.")
-            # Fix the indicator suggestion to use the DISPLAY pH value (not results['equiv_pH'])
-            # This ensures consistency with what's shown in the table
-            if ((titrant_type == "acid" and analyte_type == "base" and 
-                tc.is_strong_acid(titrant) and tc.is_strong_base(analyte)) or
-                (titrant_type == "base" and analyte_type == "acid" and 
-                tc.is_strong_base(titrant) and tc.is_strong_acid(analyte))):
-                # Strong acid-strong base titration should use pH 7
-                equiv_display_pH = 7.0
-            else:
-                # Use the pH from the simulation for all other cases
-                equiv_display_pH = results['pH_values'][equiv_idx]
-            
-            # Now suggest indicator based on the corrected pH value
-            if equiv_display_pH < 3.0:
-                st.success("**Suggested indicator**: Methyl violet (pH range: 0-2)")
-            elif equiv_display_pH < 5.0:
-                st.success("**Suggested indicator**: Methyl orange (pH range: 3.1-4.4)")
-            elif equiv_display_pH < 7.0:
-                st.success("**Suggested indicator**: Bromocresol green (pH range: 3.8-5.4)")
-            elif equiv_display_pH < 8.5:
-                st.success("**Suggested indicator**: Bromothymol blue (pH range: 6.0-7.6)")
-            elif equiv_display_pH < 10.0:
-                st.success("**Suggested indicator**: Phenolphthalein (pH range: 8.0-10.0)")
-            else:
-                st.success("**Suggested indicator**: Alizarin yellow (pH range: 10.0-12.0)")
-
+          
